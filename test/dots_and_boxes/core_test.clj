@@ -2,6 +2,7 @@
   (:require [clojure.test :refer :all]
             [dots-and-boxes.core :refer :all]))
 
-(deftest a-test
-  (testing "FIXME, I fail."
-    (is (= 0 1))))
+(deftest test-create-board
+    (testing "Testing create-board functionality"
+        (is (= (count (:board-array (create-board 3 3))) 63))
+        (is (= (board-to-string (create-board 3 3)) "\n\n\n*-*-*\n- - -\n*-*-*\n- - -\n*-*-*\n\n"))))
