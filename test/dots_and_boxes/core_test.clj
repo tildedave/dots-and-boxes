@@ -10,8 +10,8 @@
 (deftest test-boxes-for-idx
     ; Need to figure out how to really compare these
     (testing "Testing boxes for index"
-        (is (= (seq (boxes-for-idx (create-board 3 3) 21)) (seq (set [21 39 31 29]))))
-        (is (= (seq (boxes-for-idx (create-board 3 3) 31)) (seq [(set [31 23 33 41]) (set [31 21 29 39])])))))
+        (is (= (vec (boxes-for-idx (create-board 3 3) 21)) [#{21 39 31 29}]))
+        (is (= (seq (boxes-for-idx (create-board 3 3) 31)) [#{31 21 29 39} #{31 23 33 41}]))))
 
 (deftest test-make-move-handles-completed-box
     (testing "Make move handles completed box"
