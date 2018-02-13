@@ -1,6 +1,6 @@
 (ns dots-and-boxes.core-test
   (:require [clojure.test :refer :all]
-            [dots-and-boxes.core :refer :all]))
+    [dots-and-boxes.core :refer :all]))
 
 (deftest test-create-board
     (testing "Testing create-board functionality"
@@ -12,3 +12,17 @@
     (testing "Testing boxes for index"
         (is (= (seq (boxes-for-idx (create-board 3 3) 21)) (seq (set [21 39 31 29]))))
         (is (= (seq (boxes-for-idx (create-board 3 3) 31)) (seq [(set [31 23 33 41]) (set [31 21 29 39])])))))
+
+(deftest test-make-move-handles-completed-box
+    (testing "Make move handles completed box"
+        (true? (:player-one-to-move
+            (make-move
+                (make-move
+                    (make-move
+                        (make-move
+                            (make-move
+                                (make-move
+                                    (make-move
+                                        (create-board 3 3)
+                                        1 21) 2 59) 1 29)  2 57) 1 31) 2 47) 1 39)))))
+

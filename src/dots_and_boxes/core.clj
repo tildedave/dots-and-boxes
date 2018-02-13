@@ -19,7 +19,7 @@
 ; 31 is in two boxes: [31 21 29 39] and [31 23 33 41]
 
 ; FIXME: board-array is not yet an array
-(defrecord Board [height width board-array line-map])
+(defrecord Board [height width board-array player-one-to-move])
 
 (defn length-row [width] (+ (* 2 width) 3))
 
@@ -48,7 +48,8 @@
 
 (defn create-board [height width]
     (let [arr
-        (concat
+        (vec
+            (concat
             (create-dummy-row width)
             (create-dummy-row width)
             (apply concat (repeat (- height 1)
@@ -57,8 +58,8 @@
                     (create-vertical-row width))))
             (create-horizontal-row width)
             (create-dummy-row width)
-            (create-dummy-row width))]
-    (->Board height width arr {})))
+            (create-dummy-row width)))]
+    (->Board height width arr true)))
 
 (defn board-range [board]
     (range (count (:board-array board))))
@@ -82,7 +83,12 @@
 
 (defn is-legit-box [board box]
     ; This test relies on the 'X' padding in the board representation
-    (every? (fn [idx] (= (nth (:board-array board) idx) "-")) box))
+    (every?
+        (fn [idx]
+            (and
+                (not= (nth (:board-array board) idx) "X")
+                (not= (nth (:board-array board) idx) " ")))
+        box))
 
 (defn horizontal-box-partners [board idx]
     ; Returns a sequence of sets of box partners for a given index
@@ -103,21 +109,29 @@
         (horizontal-box-partners board idx)
         (vertical-box-partners board idx)))
 
-; (defn vertical-partners-idx [board idx]
-;     (let [len (length-row (:width board))]
-;         [(+ idx (* 2 len))
-;          (- idx (* 2 len))]))
+(defn fill-line [board player idx]
+    (update-in board [:board-array] (fn [arr] (assoc arr idx player))))
 
-; (defn vertical-partners-idx [board idx]
-;     (let [len (length-row (:width board))]
-;         [(+ idx (* 2 len))
-;          (- idx (* 2 len))]))
+(defn has-completed-box [board player box]
+    ; This test relies on us filling in the player number in available indices
+    (every? (fn [idx] (= (nth (:board-array board) idx) player)) box))
 
-; (defn line-pairs [board idx]
-;     ; Vertical pairs for line indices are +/- (2 * width - 1) * 2
-;     ; Horizontal pairs are +/- (2 * width - 1) + 1 and (2 * width - 1) - 1
-;     (vertical-partner)
-;     )
+(defn make-move [board player idx]
+    ; 1) fill in the line for the player
+    ; 2) determine if this means the box is now filled by that player
+    ;    ...if so, don't toggle whose turn to move it is
+    ;
+    (cond
+        (not= (nth (:board-array board) idx) "-")
+            (throw (AssertionError. (str "Board was not empty at spot " idx ": " (nth (:board-array board) idx))))
+        (not= (:player-one-to-move board) (= player 1))
+            (throw (AssertionError. (str "Incorrect player attempted to make move: " player " (expected " (if (:player-one-to-move board) "1" "2") ")")))
+        :else
+            (let [new-board (fill-line board player idx)
+                  just-completed-a-box (some (partial has-completed-box new-board player) (boxes-for-idx new-board idx))]
+                  (if just-completed-a-box
+                    new-board
+                    (update-in new-board [:player-one-to-move] (fn [one-to-move] (not one-to-move)))))))
 
 (defn -main
   "I don't do a whole lot ... yet."
