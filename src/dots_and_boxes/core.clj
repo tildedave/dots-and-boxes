@@ -1,4 +1,5 @@
 (ns dots-and-boxes.core
+  (:require [clojure.set :refer :all])
   (:gen-class))
 
 ; Dots and boxes is played on N x N grid
@@ -18,8 +19,7 @@
 ; 21's "pairs" in box life are 21, 29, 31, 39
 ; 31 is in two boxes: [31 21 29 39] and [31 23 33 41]
 
-; FIXME: board-array is not yet an array
-(defrecord Board [height width board-array player-one-to-move])
+(defrecord Board [height width board-array available-moves player-one-to-move score])
 
 (defn length-row [width] (+ (* 2 width) 3))
 
@@ -58,19 +58,69 @@
                     (create-vertical-row width))))
             (create-horizontal-row width)
             (create-dummy-row width)
-            (create-dummy-row width)))]
-    (->Board height width arr true)))
+            (create-dummy-row width)))
+        moves (set (keep-indexed #(if (= (nth arr %1) "-") %2) (range (count arr))))]
+    (->Board height width arr moves true (hash-map 1 0 2 0))))
 
 (defn board-range [board]
     (range (count (:board-array board))))
 
 (defn board-to-string [board]
-    ; TODO: includes extraneous newlines because of printing the dummy rows
+    ; format to 120 characters
+    ; if board is width 3, then it will have 3 stars in it
+    ; vertical rows are easier
+    ; desired output is something like:
+    ; * ----------- 21 ----------- * ----------- 29 ----------- *
+    ; |                            |                            |
+    ; |                            |                            |
+    ; |                            |                            |
+    ; |                            |                            |
+    ; |                            |                            |
+    ; |                            |                            |
+    ; |                            |                            |
+    ; 29                          31                           33
+    ; |                            |                            |
+    ; |                            |                            |
+    ; |                            |                            |
+    ; |                            |                            |
+    ; |                            |                            |
+    ; |                            |                            |
+    ; |                            |                            |
+    ; * ----------- 39 ----------- * ----------- 41 ----------- *
+    ; TODO: this is super ugly
     (apply str (map-indexed (fn [idx itm]
         (cond
             (zero? (mod idx (length-row (:width board)))) "\n"
             (= itm "X") ""
-            :else itm)) (:board-array board))))
+            (= itm "*") "*"
+            (= itm " ") " "
+            :else (str "- " itm " (" idx ") " " -"))) (:board-array board))))
+
+(defn board-to-string-new [board]
+    (let [height (:height board)
+          width (:width board)
+          column-width 120
+          spacing-between-stars (- (/ 120 (:width board)) 2)]
+          (apply str
+              (map
+                (fn [y]
+                    (str
+                        (apply str
+                            (map
+                                (fn [x]
+                                ; horizontal row
+                                (str
+                                    "* "
+                                    (apply str (repeat (/ spacing-between-stars 2) "-"))
+                                    (format "%3d " (+ 1 (* (inc x) 2) (* (length-row 3) (+ 2 (* y 2)))))
+                                    (apply str (repeat (/ spacing-between-stars 2) "-"))
+                                    " "
+                                ))
+                                (range (dec width))))
+                        "*\n")
+                        ; TODO: vertical rows
+                )
+                (range (dec height))))))
 
 (defn is-horizontal-idx [board idx]
     ; Is the index on the horizontal row?
@@ -110,7 +160,11 @@
         (vertical-box-partners board idx)))
 
 (defn fill-line [board player idx]
-    (update-in board [:board-array] (fn [arr] (assoc arr idx player))))
+    ; Update the state of the board (everything)
+    (update-in
+        (update-in board [:board-array] (fn [arr] (assoc arr idx player)))
+        [:available-moves]
+        (fn [moves] (difference moves #{idx}))))
 
 (defn has-completed-box [board player box]
     ; This test relies on us filling in the player number in available indices
@@ -128,12 +182,40 @@
             (throw (AssertionError. (str "Incorrect player attempted to make move: " player " (expected " (if (:player-one-to-move board) "1" "2") ")")))
         :else
             (let [new-board (fill-line board player idx)
-                  just-completed-a-box (some (partial has-completed-box new-board player) (boxes-for-idx new-board idx))]
-                  (if just-completed-a-box
-                    new-board
+                  completed-boxes (filter (partial has-completed-box new-board player) (boxes-for-idx new-board idx))]
+                  (if (> (count completed-boxes) 0)
+                    (update-in new-board [:score]
+                        (fn [score] (update score (if (:player-one-to-move new-board) 1 2) (partial + (count completed-boxes)))))
                     (update-in new-board [:player-one-to-move] (fn [one-to-move] (not one-to-move)))))))
 
+(defn choose-move-random-strategy [board]
+    (rand-nth (seq (:available-moves board))))
+
+(defn is-game-complete [board] (= (count (:available-moves board)) 0))
+
+(defn is-winner [board player]
+    (let [other-player (if (= player 1) 2 1)]
+        (> (get (:score board) player) (get (:score board) other-player))))
+
 (defn -main
-  "I don't do a whole lot ... yet."
   [& args]
-  (println "Hello, World!"))
+  (println "You are player one")
+  (loop [board (create-board 3 3)]
+    (println "Board is now:")
+    (println (board-to-string board))
+    (cond
+        (is-game-complete board)
+            (do
+                (println "Game is done!")
+                (println (board-to-string board)))
+        (:player-one-to-move board)
+            (do
+                (println "Enter your move:")
+                (let [idx (Integer/parseInt (read-line))]
+                    (recur (make-move board 1 idx))))
+        :else
+            (do
+                (println "My move")
+                (let [idx (choose-move-random-strategy board)]
+                    (println (str "I choose move: " idx))
+                    (recur (make-move board 2 idx)))))))
