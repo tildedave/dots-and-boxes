@@ -103,40 +103,52 @@
                 (map
                     (fn [x]
                         ; horizontal row
-                        (str
-                            "* "
-                            (apply str (repeat (/ spacing-between-stars 2) "-"))
-                            (format "%3d " (+ 1 (* (inc x) 2) (* (length-row width) (+ 2 (* y 2)))))
-                            (apply str (repeat (/ spacing-between-stars 2) "-"))
-                            " "))
+                        (let [idx (+ 1 (* (inc x) 2) (* (length-row width) (+ 2 (* y 2))))
+                              board-contents (nth (:board-array board) idx)]
+                            (str
+                                "* "
+                                (apply str (repeat (- (/ spacing-between-stars 2) 1) "-"))
+                                (if (= board-contents "-")
+                                    (format "  %3d   " idx)
+                                    (format "%3d (%d) " idx board-contents))
+                                (apply str (repeat (- (/ spacing-between-stars 2) 1) "-"))
+                                " ")))
                     (range (dec width))))
             "*\n")))
 
-(defn vertical-filler-row-to-string [board spacing-between-stars]
+(defn- vertical-filler-row-to-string [board spacing-between-stars]
     (let [width (:width board)]
         (str
             (apply str
                 (map
                     (fn [x]
-                        ; horizontal row
+                        ; vertical row
                         (str
                             "|"
-                            (apply str (repeat (+ 6 spacing-between-stars) " "))))
+                            (apply str (repeat (+ 8 spacing-between-stars) " "))))
                     (range (dec width))))
             "|\n")))
 
-(defn vertical-number-row-to-string [board y spacing-between-stars]
+(defn- vertical-number-display [board x y]
+    (let [width (:width board)
+          idx (+ (* (inc x) 2) (* (length-row width) (+ 2 (inc (* y 2)))))
+          board-contents (nth (:board-array board) idx)]
+        (if (= board-contents "-")
+            (format "%-3d    " idx)
+            (format "%-3d (%d)" idx board-contents))))
+
+(defn- vertical-number-row-to-string [board y spacing-between-stars]
     (let [width (:width board)]
         (str
             (apply str
                 (map
                     (fn [x]
-                        ; horizontal row
+                        ; vertical row
                         (str
-                            (format "%-3d " (+ (* (inc x) 2) (* (length-row width) (+ 2 (inc (* y 2))))))
-                            (apply str (repeat (+ 3 spacing-between-stars) " "))))
+                            (vertical-number-display board x y)
+                            (apply str (repeat (+ 2 spacing-between-stars) " "))))
                     (range (dec width))))
-            (format "%-3d " (+ (* width 2) (* (length-row width) (+ 2 (inc (* y 2))))))
+            (vertical-number-display board (dec width) y)
             "\n")))
 
 (defn board-to-string-new [board]
