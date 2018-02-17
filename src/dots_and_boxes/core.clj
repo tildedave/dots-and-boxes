@@ -96,31 +96,78 @@
             (= itm " ") " "
             :else (str "- " itm " (" idx ") " " -"))) (:board-array board))))
 
+(defn- horizontal-row-to-string [board y spacing-between-stars]
+    (let [width (:width board)]
+        (str
+            (apply str
+                (map
+                    (fn [x]
+                        ; horizontal row
+                        (str
+                            "* "
+                            (apply str (repeat (/ spacing-between-stars 2) "-"))
+                            (format "%3d " (+ 1 (* (inc x) 2) (* (length-row width) (+ 2 (* y 2)))))
+                            (apply str (repeat (/ spacing-between-stars 2) "-"))
+                            " "))
+                    (range (dec width))))
+            "*\n")))
+
+(defn vertical-filler-row-to-string [board spacing-between-stars]
+    (let [width (:width board)]
+        (str
+            (apply str
+                (map
+                    (fn [x]
+                        ; horizontal row
+                        (str
+                            "|"
+                            (apply str (repeat (+ 6 spacing-between-stars) " "))))
+                    (range (dec width))))
+            "|\n")))
+
+(defn vertical-number-row-to-string [board y spacing-between-stars]
+    (let [width (:width board)]
+        (str
+            (apply str
+                (map
+                    (fn [x]
+                        ; horizontal row
+                        (str
+                            (format "%-3d " (+ (* (inc x) 2) (* (length-row width) (+ 2 (inc (* y 2))))))
+                            (apply str (repeat (+ 3 spacing-between-stars) " "))))
+                    (range (dec width))))
+            (format "%-3d " (+ (* width 2) (* (length-row width) (+ 2 (inc (* y 2))))))
+            "\n")))
+
 (defn board-to-string-new [board]
     (let [height (:height board)
           width (:width board)
           column-width 120
           spacing-between-stars (- (/ 120 (:width board)) 2)]
-          (apply str
-              (map
-                (fn [y]
-                    (str
-                        (apply str
-                            (map
-                                (fn [x]
-                                ; horizontal row
-                                (str
-                                    "* "
-                                    (apply str (repeat (/ spacing-between-stars 2) "-"))
-                                    (format "%3d " (+ 1 (* (inc x) 2) (* (length-row 3) (+ 2 (* y 2)))))
-                                    (apply str (repeat (/ spacing-between-stars 2) "-"))
-                                    " "
-                                ))
-                                (range (dec width))))
-                        "*\n")
-                        ; TODO: vertical rows
-                )
-                (range (dec height))))))
+          (str
+              (apply str
+                  (map
+                    (fn [y]
+                        (str
+                            (horizontal-row-to-string board y spacing-between-stars)
+                            (apply str
+                                ; magic number to make the REPL look better
+                                ; this won't work for different font sizes
+                                ; +1 because I need a midpoint to put the # at, so it needs to be odd
+                                (let [magic-threshold (inc (quot spacing-between-stars 4))]
+                                    (map
+                                        (fn [visual-y]
+                                        ; vertical rows
+                                        ; let's say spacing-between-stars is 5
+                                            (cond
+                                                (= visual-y (quot (dec magic-threshold) 2))
+                                                    (vertical-number-row-to-string board y spacing-between-stars)
+                                                :else (vertical-filler-row-to-string board spacing-between-stars)))
+                                        (range magic-threshold))))
+                            ))
+                    (range (dec height))))
+                (horizontal-row-to-string board (dec height) spacing-between-stars)
+              )))
 
 (defn is-horizontal-idx [board idx]
     ; Is the index on the horizontal row?
