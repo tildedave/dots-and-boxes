@@ -65,36 +65,8 @@
 (defn board-range [board]
     (range (count (:board-array board))))
 
-(defn board-to-string [board]
-    ; format to 120 characters
-    ; if board is width 3, then it will have 3 stars in it
-    ; vertical rows are easier
-    ; desired output is something like:
-    ; * ----------- 21 ----------- * ----------- 29 ----------- *
-    ; |                            |                            |
-    ; |                            |                            |
-    ; |                            |                            |
-    ; |                            |                            |
-    ; |                            |                            |
-    ; |                            |                            |
-    ; |                            |                            |
-    ; 29                          31                           33
-    ; |                            |                            |
-    ; |                            |                            |
-    ; |                            |                            |
-    ; |                            |                            |
-    ; |                            |                            |
-    ; |                            |                            |
-    ; |                            |                            |
-    ; * ----------- 39 ----------- * ----------- 41 ----------- *
-    ; TODO: this is super ugly
-    (apply str (map-indexed (fn [idx itm]
-        (cond
-            (zero? (mod idx (length-row (:width board)))) "\n"
-            (= itm "X") ""
-            (= itm "*") "*"
-            (= itm " ") " "
-            :else (str "- " itm " (" idx ") " " -"))) (:board-array board))))
+
+; Board formatting functions follow
 
 (defn- horizontal-row-to-string [board y spacing-between-stars]
     (let [width (:width board)]
@@ -151,7 +123,7 @@
             (vertical-number-display board (dec width) y)
             "\n")))
 
-(defn board-to-string-new [board]
+(defn board-to-string [board]
     (let [height (:height board)
           width (:width board)
           column-width 120
@@ -252,9 +224,11 @@
 
 (defn is-game-complete [board] (= (count (:available-moves board)) 0))
 
-(defn is-winner [board player]
-    (let [other-player (if (= player 1) 2 1)]
-        (> (get (:score board) player) (get (:score board) other-player))))
+(defn game-outcome [score player]
+    (let [other-player (if (= player 1) 2 1)
+          player-score (get score player)
+          other-player-score (get score other-player)]
+          (compare player-score other-player-score)))
 
 (defn -main
   [& args]
@@ -266,7 +240,13 @@
         (is-game-complete board)
             (do
                 (println "Game is done!")
-                (println (board-to-string board)))
+                (println (board-to-string board))
+                (println (:score board))
+                (println
+                    (case (game-outcome (:score board) 1)
+                        -1 "I win!"
+                        1 "You win!"
+                        0 "We tied!")))
         (:player-one-to-move board)
             (do
                 (println "Enter your move:")
