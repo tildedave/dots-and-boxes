@@ -26,5 +26,5 @@
     (testing "make move handles completed box"
         (let [completed-moves [[1 21] [2 59] [1 29] [2 57] [1 31] [2 47] [1 39]]
               board-with-completed-box (apply-move-list (create-board 3 3) completed-moves)]
-            (is (true? (:player-one-to-move board-with-completed-box)) "player one got a bonus move after completing a box")
+            (is (= (:player-to-move board-with-completed-box) 1) "player one got a bonus move after completing a box")
             (is (= (:score board-with-completed-box) (hash-map 1 1 2 0)) "player one got credit for completing a box"))))

@@ -19,7 +19,7 @@
 ; 21's "pairs" in box life are 21, 29, 31, 39
 ; 31 is in two boxes: [31 21 29 39] and [31 23 33 41]
 
-(defrecord Board [height width board-array available-moves player-one-to-move score])
+(defrecord Board [height width board-array available-moves player-to-move score])
 
 (defn length-row [width] (+ (* 2 width) 3))
 
@@ -60,7 +60,7 @@
             (create-dummy-row width)
             (create-dummy-row width)))
         moves (set (keep-indexed #(if (= (nth arr %1) "-") %2) (range (count arr))))]
-    (->Board height width arr moves true (hash-map 1 0 2 0))))
+    (->Board height width arr moves 1 (hash-map 1 0 2 0))))
 
 (defn board-range [board]
     (range (count (:board-array board))))
@@ -201,6 +201,9 @@
     ; This test relies on us filling in the player number in available indices
     (every? (fn [idx] (= (nth (:board-array board) idx) player)) box))
 
+(defn other-player [player]
+    (if (= player 1) 2 1))
+
 (defn make-move [board player idx]
     ; 1) fill in the line for the player
     ; 2) determine if this means the box is now filled by that player
@@ -209,15 +212,15 @@
     (cond
         (not= (nth (:board-array board) idx) "-")
             (throw (AssertionError. (str "Board was not empty at spot " idx ": " (nth (:board-array board) idx))))
-        (not= (:player-one-to-move board) (= player 1))
-            (throw (AssertionError. (str "Incorrect player attempted to make move: " player " (expected " (if (:player-one-to-move board) "1" "2") ")")))
+        (not= (:player-to-move board) player)
+            (throw (AssertionError. (str "Incorrect player attempted to make move: " player " (expected " (:player-to-move board) ")")))
         :else
             (let [new-board (fill-line board player idx)
                   completed-boxes (filter (partial has-completed-box new-board player) (boxes-for-idx new-board idx))]
                   (if (> (count completed-boxes) 0)
                     (update-in new-board [:score]
-                        (fn [score] (update score (if (:player-one-to-move new-board) 1 2) (partial + (count completed-boxes)))))
-                    (update-in new-board [:player-one-to-move] (fn [one-to-move] (not one-to-move)))))))
+                        (fn [score] (update score (:player-to-move new-board) (partial + (count completed-boxes)))))
+                    (update-in new-board [:player-to-move] (fn [player-to-move] (other-player player-to-move)))))))
 
 (defn choose-move-random-strategy [board]
     (rand-nth (seq (:available-moves board))))
@@ -225,9 +228,6 @@
 (defn is-game-complete [board]
     ; TODO: be smart about 'no more boxes can be completed' to prune tree depth
     (= (count (:available-moves board)) 0))
-
-(defn other-player [player]
-    (if (= player 1) 2 1))
 
 (defn game-outcome [board player]
     (let [score (:score board)
@@ -265,14 +265,15 @@
                 (->CandidateMove 'dummy-value -100000 nil 0 0)
                 (map
                     (fn [move]
-                        ; TODO: recur
-                        (update-in
-                            (assoc
-                                (choose-move-minimax (make-move board player move) (other-player player) (dec depth))
-                                :move
-                                move)
-                            [:depth]
-                            inc))
+                        (let [new-board (make-move board player move)]
+                            ; TODO: recur
+                            (update-in
+                                (assoc
+                                    (choose-move-minimax new-board (:player-to-move new-board) (dec depth))
+                                    :move
+                                    move)
+                                [:depth]
+                                inc)))
                     (:available-moves board)))))
 
 (defn -main
@@ -292,7 +293,7 @@
                         -1 "I win!"
                         1 "You win!"
                         0 "We tied!")))
-        (:player-one-to-move board)
+        (= (:player-to-move board) 1)
             (do
                 (println "Enter your move:")
                 (let [idx (Integer/parseInt (read-line))]
@@ -300,6 +301,7 @@
         :else
             (do
                 (println "My move")
-                (let [idx (choose-move-random-strategy board)]
-                    (println (str "I choose move: " idx))
-                    (recur (make-move board 2 idx)))))))
+                (println "Searching at depth 5...")
+                (let [move (choose-move-minimax board 2 5)]
+                    (println (str "I choose move: " (:move move) "(evaluated to depth " :depth ", score is " (:score move)))
+                    (recur (make-move board 2 (:move move))))))))
