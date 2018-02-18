@@ -126,8 +126,8 @@
 (defn board-to-string [board]
     (let [height (:height board)
           width (:width board)
-          column-width 120
-          spacing-between-stars (- (/ 120 (:width board)) 2)]
+          column-width 100
+          spacing-between-stars (- (/ column-width (:width board)) 2)]
           (str
               (apply str
                   (map
@@ -222,13 +222,58 @@
 (defn choose-move-random-strategy [board]
     (rand-nth (seq (:available-moves board))))
 
-(defn is-game-complete [board] (= (count (:available-moves board)) 0))
+(defn is-game-complete [board]
+    ; TODO: be smart about 'no more boxes can be completed' to prune tree depth
+    (= (count (:available-moves board)) 0))
 
-(defn game-outcome [score player]
-    (let [other-player (if (= player 1) 2 1)
+(defn other-player [player]
+    (if (= player 1) 2 1))
+
+(defn game-outcome [board player]
+    (let [score (:score board)
           player-score (get score player)
-          other-player-score (get score other-player)]
+          other-player-score (get score (other-player player))]
           (compare player-score other-player-score)))
+
+(defrecord CandidateMove [kind score move nodes depth])
+
+(defn choose-move-minimax [board player depth]
+    (cond
+        (is-game-complete board)
+        (->CandidateMove 'completed-game
+            (case (game-outcome board player)
+                -1  -1000
+                1   1000
+                0   0)
+            nil
+            1
+            0)
+        (= depth 0)
+            (let [score (:score board)]
+                ; TODO: add quiescent search in the case that the player to move is the player
+                (->CandidateMove 'incomplete-game (- (get score player) (get score (other-player player))) nil 1 0))
+        :else
+            (reduce
+                (fn [best-so-far result-move]
+                    (update-in
+                        (if (> (:score result-move) (:score best-so-far))
+                            result-move
+                            best-so-far)
+                        [:nodes]
+                        (fn [nodes]
+                            (+ (:nodes best-so-far) (:nodes result-move)))))
+                (->CandidateMove 'dummy-value -100000 nil 0 0)
+                (map
+                    (fn [move]
+                        ; TODO: recur
+                        (update-in
+                            (assoc
+                                (choose-move-minimax (make-move board player move) (other-player player) (dec depth))
+                                :move
+                                move)
+                            [:depth]
+                            inc))
+                    (:available-moves board)))))
 
 (defn -main
   [& args]
@@ -243,7 +288,7 @@
                 (println (board-to-string board))
                 (println (:score board))
                 (println
-                    (case (game-outcome (:score board) 1)
+                    (case (game-outcome board 1)
                         -1 "I win!"
                         1 "You win!"
                         0 "We tied!")))
