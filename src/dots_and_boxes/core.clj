@@ -242,15 +242,16 @@
         (is-game-complete board)
         (->CandidateMove 'completed-game
             (case (game-outcome board player)
-                -1  -1000
-                1   1000
+                ; stupid way to incentivize "running up the score" in a won position
+                ; if the outcome is 1000 (I win) they should go for more points
+                -1  (- 1000 (get (:score board) player))
+                1   (+ 1000 (get (:score board) player))
                 0   0)
             nil
             1
             0)
         (= depth 0)
             (let [score (:score board)]
-                ; TODO: add quiescent search in the case that the player to move is the player
                 (->CandidateMove 'incomplete-game (- (get score player) (get score (other-player player))) nil 1 0))
         :else
             (reduce
@@ -265,15 +266,20 @@
                 (->CandidateMove 'dummy-value -100000 nil 0 0)
                 (map
                     (fn [move]
-                        (let [new-board (make-move board player move)]
-                            ; TODO: recur
+                        (let [new-board (make-move board player move)
+                              new-to-move (:player-to-move new-board)
+                              is-different-player (= (:player-to-move board) new-to-move)]
                             (update-in
-                                (assoc
-                                    (choose-move-minimax new-board (:player-to-move new-board) (dec depth))
-                                    :move
-                                    move)
-                                [:depth]
-                                inc)))
+                                (update-in
+                                    (assoc
+                                        (choose-move-minimax new-board new-to-move
+                                            (if is-different-player depth (dec depth)))
+                                        :move
+                                        move)
+                                    [:depth]
+                                    inc)
+                                [:score]
+                                (fn [score] (if is-different-player (- score) score)))))
                     (:available-moves board)))))
 
 (defn -main
@@ -303,5 +309,5 @@
                 (println "My move")
                 (println "Searching at depth 5...")
                 (let [move (choose-move-minimax board 2 5)]
-                    (println (str "I choose move: " (:move move) "(evaluated to depth " :depth ", score is " (:score move)))
+                    (println (str "I choose move: " (:move move) " (evaluated " (:nodes move) " nodes to depth " (:depth move) ", score is " (:score move) ")"))
                     (recur (make-move board 2 (:move move))))))))
